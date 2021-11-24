@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">TODO App2</string>
+
+    <string name="failure_no_internet">Theres is no internet connection</string>
+    <string name="failure_db">We could not connect to the database</string>
+    <string name="failure_unauthorized">You are no logged in</string>
+
+</resources>
