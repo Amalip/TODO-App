@@ -30,7 +30,7 @@ class NotificationManagerImpl(private val context: Context, params: WorkerParame
     }
 
     private fun createNotification(task: Task) {
-
+        // Create an explicit intent for an Activity in your app
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("notificationID", task.id)
@@ -47,9 +47,9 @@ class NotificationManagerImpl(private val context: Context, params: WorkerParame
             .setAutoCancel(true)
 
         with(NotificationManagerCompat.from(context)) {
+            // notificationId is a unique int for each notification that you must define
             notify(task.id.toInt(), builder.build())
         }
-
     }
 
 }

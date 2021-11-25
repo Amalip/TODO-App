@@ -3,23 +3,38 @@ package com.amalip.todoapp2.presentation.form
 import android.annotation.SuppressLint
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import com.amalip.todoapp2.presentation.tasklist.MainActivity.Companion.NEW_TASK
-import com.amalip.todoapp2.presentation.tasklist.MainActivity.Companion.UPDATE_TASK
+import androidx.activity.viewModels
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkManager
 import com.amalip.todoapp2.R
+import com.amalip.todoapp2.core.enums.TaskStatus
+import com.amalip.todoapp2.core.extension.failure
+import com.amalip.todoapp2.core.extension.observe
+import com.amalip.todoapp2.core.presentation.BaseActivity
+import com.amalip.todoapp2.core.presentation.BaseViewState
 import com.amalip.todoapp2.domain.model.Task
+import com.amalip.todoapp2.fremawork.notification.NotificationManagerImpl
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.DelicateCoroutinesApi
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
+import java.util.concurrent.TimeUnit
 
-class FormActivity : AppCompatActivity() {
+@DelicateCoroutinesApi
+@AndroidEntryPoint
+class FormActivity : BaseActivity() {
+
+    private val formViewModel: FormViewModel by viewModels()
 
     private lateinit var edtTitle: EditText
     private lateinit var edtDescription: EditText
@@ -33,10 +48,31 @@ class FormActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_form)
 
+        formViewModel.apply {
+            observe(state, ::onViewStateChanged)
+            failure(failure, ::handleFailure)
+        }
+
         isDetailTask = intent.getBooleanExtra("isTaskDetail", false)
 
         initViews()
         if (isDetailTask) setTaskInfo(intent.getParcelableExtra("task") ?: Task())
+    }
+
+    override fun onViewStateChanged(state: BaseViewState?) {
+        when (state) {
+            is FormViewState.ScheduleNotificationFor -> {
+                setNotification(state.task)
+            }
+            is FormViewState.Success -> {
+                returnToList()
+            }
+        }
+    }
+
+    private fun returnToList() {
+        setResult(if (isDetailTask) TaskStatus.UPDATE_TASK.code else TaskStatus.NEW_TASK.code)
+        finish()
     }
 
     private fun setTaskInfo(task: Task) {
@@ -95,28 +131,50 @@ class FormActivity : AppCompatActivity() {
             if (edtTitle.text.isEmpty() || edtDescription.text.isEmpty() || edtDate.text.isEmpty() || edtTime.text.isEmpty()) {
                 Toast.makeText(this, "Fill form", Toast.LENGTH_SHORT).show()
             } else {
-                setResult(
-                    if (isDetailTask) UPDATE_TASK else NEW_TASK,
-                    Intent().putExtra(
-                        "newTask",
-                        Task(
-                            intent.getParcelableExtra<Task>("task")?.id ?: 0,
-                            edtTitle.text.toString(),
-                            edtDescription.text.toString(),
-                            LocalDateTime.of(
-                                LocalDate.parse(
-                                    edtDate.text,
-                                    DateTimeFormatter.ofPattern("dd/MM/yyyy")
-                                ),
-                                LocalTime.parse(edtTime.text, DateTimeFormatter.ofPattern("HH:mm"))
-                            )
-                        )
+                val task = Task(
+                    intent.getParcelableExtra<Task>("task")?.id ?: 0,
+                    edtTitle.text.toString(),
+                    edtDescription.text.toString(),
+                    LocalDateTime.of(
+                        LocalDate.parse(
+                            edtDate.text,
+                            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                        ),
+                        LocalTime.parse(edtTime.text, DateTimeFormatter.ofPattern("HH:mm"))
                     )
                 )
 
-                finish()
+                if (isDetailTask) formViewModel.updateTask(task)
+                else formViewModel.saveNewTask(task)
             }
         }
 
+    }
+
+    private fun setNotification(task: Task) {
+        val zone = OffsetDateTime.now().offset
+        val selectedMillis = task.dateTime?.toInstant(zone)?.toEpochMilli() ?: 0
+        val nowMillis = LocalDateTime.now().toInstant(zone).toEpochMilli()
+
+        scheduleNotification(
+            selectedMillis - nowMillis,
+            Data.Builder().apply {
+                putLong("notificationID", task.id)
+                putString("notificationTitle", task.title)
+                putString("notificationDescription", task.description)
+            }.build()
+        )
+    }
+
+    private fun scheduleNotification(delay: Long, data: Data) {
+        val notificationWork = OneTimeWorkRequest.Builder(NotificationManagerImpl::class.java)
+            .setInitialDelay(delay, TimeUnit.MILLISECONDS).setInputData(data).build()
+
+        val instanceWorkManager = WorkManager.getInstance(this)
+        instanceWorkManager.beginUniqueWork(
+            "NOTIFICATION_WORK ${data.getLong("notificationID", 0)}",
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            notificationWork
+        ).enqueue()
     }
 }

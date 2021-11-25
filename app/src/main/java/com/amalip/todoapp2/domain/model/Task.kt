@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 @Parcelize
 data class Task(
     @PrimaryKey(autoGenerate = true)
-    var id: Long = 0L,
+    var id: Long = 0,
     val title: String = "",
     val description: String = "",
     val dateTime: LocalDateTime? = null,

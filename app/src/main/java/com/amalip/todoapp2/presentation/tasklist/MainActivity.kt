@@ -14,6 +14,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import com.amalip.todoapp2.R
+import com.amalip.todoapp2.core.enums.TaskStatus.*
 import com.amalip.todoapp2.core.extension.failure
 import com.amalip.todoapp2.core.extension.observe
 import com.amalip.todoapp2.core.presentation.BaseActivity
@@ -26,7 +27,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.util.concurrent.TimeUnit
-import com.amalip.todoapp2.core.enums.TaskStatus.*
 
 @DelicateCoroutinesApi
 @AndroidEntryPoint
@@ -52,11 +52,8 @@ class MainActivity : BaseActivity() {
             getPendingTasks()
         }
 
-        createNotificationChannel()
-
         clickedNotificationTaskId = intent.getLongExtra("notificationID", -1)
-
-        if (clickedNotificationTaskId > -1)
+        if (clickedNotificationTaskId != -1L)
             mainViewModel.getTaskById(clickedNotificationTaskId)
 
         initViews()
@@ -64,11 +61,15 @@ class MainActivity : BaseActivity() {
 
     override fun onViewStateChanged(state: BaseViewState?) {
         when (state) {
-            is ListViewState.Test -> {
-
-            }
             is ListViewState.ReceivedList -> {
                 setAdapter(state.tasks.toMutableList())
+            }
+            is ListViewState.ReceivedTask -> {
+                initDetailsTask(state.task)
+            }
+            is ListViewState.TaskFinished -> {
+                adapter.remove(state.position)
+                cancelScheduleNotification("NOTIFICATION_WORK ${state.taskId}")
             }
         }
     }
@@ -113,48 +114,6 @@ class MainActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == NEW_TASK.code || requestCode == UPDATE_TASK.code)
             mainViewModel.getPendingTasks()
-    }
-
-    private fun setNotification(task: Task) {
-        val zone = OffsetDateTime.now().offset
-        val selectedMillis = task.dateTime?.toInstant(zone)?.toEpochMilli() ?: 0
-        val nowMillis = LocalDateTime.now().toInstant(zone).toEpochMilli()
-
-        scheduleNotification(
-            selectedMillis - nowMillis,
-            Data.Builder().apply {
-                putLong("notificationID", task.id)
-                putString("notificationTitle", task.title)
-                putString("notificationDescription", task.description)
-            }.build()
-        )
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "TASKS"
-            val descriptionText = "Channel of pending tasks"
-            val importance = NotificationManager.IMPORTANCE_HIGH
-            val channel = NotificationChannel("TASK_CHANNEL", name, importance).apply {
-                description = descriptionText
-            }
-
-            val notificationManager: NotificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    private fun scheduleNotification(delay: Long, data: Data) {
-
-        val notificationWork = OneTimeWorkRequest.Builder(NotificationManagerImpl::class.java)
-            .setInitialDelay(delay, TimeUnit.MILLISECONDS).setInputData(data).build()
-
-        val instanceWorkManager = WorkManager.getInstance(this)
-        instanceWorkManager.beginUniqueWork(
-            "NOTIFICATION_WORK ${data.getInt("notificationID", 0)}",
-            ExistingWorkPolicy.APPEND_OR_REPLACE, notificationWork
-        ).enqueue()
     }
 
     private fun cancelScheduleNotification(uniqueWorkName: String) {

@@ -10,6 +10,7 @@ import com.amalip.todoapp2.domain.model.Task
 sealed class ListViewState: BaseViewState() {
 
     data class ReceivedList(val tasks: List<Task>): ListViewState()
-    object Test: ListViewState()
+    data class ReceivedTask(val task: Task) : ListViewState()
+    data class TaskFinished(val taskId: Long, val position: Int) : ListViewState()
 
 }

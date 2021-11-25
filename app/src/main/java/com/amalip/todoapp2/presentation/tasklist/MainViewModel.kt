@@ -1,5 +1,6 @@
 package com.amalip.todoapp2.presentation.tasklist
 
+import com.amalip.todoapp2.core.interactor.UseCase
 import com.amalip.todoapp2.core.presentation.BaseViewModel
 import com.amalip.todoapp2.domain.model.Task
 import com.amalip.todoapp2.domain.usecase.GetPendingTasks
@@ -21,14 +22,34 @@ class MainViewModel @Inject constructor(
     private val updateTask: UpdateTask
 ) : BaseViewModel() {
 
-    fun getPendingTasks() = getPendingTasks
+    fun getPendingTasks() {
+        getPendingTasks(UseCase.None()) {
+            it.fold(::handleFailure) {
+                state.value = ListViewState.ReceivedList(it)
 
-    fun getTaskById(taskId: Long) = getTaskById
+                true
+            }
+        }
+    }
 
-    fun finishTask(task: Task, position: Int) = updateTask
+    fun getTaskById(taskId: Long) {
+        getTaskById(taskId) {
+            it.fold(::handleFailure) {
+                state.value = ListViewState.ReceivedTask(it)
 
-    fun changeState() {
-        state.value = ListViewState.Test
+                true
+            }
+        }
+    }
+
+    fun finishTask(task: Task, position: Int) {
+        updateTask(task.apply { status = false }) {
+            it.fold(::handleFailure) {
+                state.value = ListViewState.TaskFinished(task.id, position)
+
+                true
+            }
+        }
     }
 
 }

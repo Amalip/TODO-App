@@ -5,4 +5,8 @@
     <string name="failure_db">We could not connect to the database</string>
     <string name="failure_unauthorized">You are no logged in</string>
 
+    <string name="failure_no_info">We have no information</string>
+    <string name="failure_could_not_create">We could not create</string>
+    <string name="failure_could_not_update">We could not update</string>
+
 </resources>

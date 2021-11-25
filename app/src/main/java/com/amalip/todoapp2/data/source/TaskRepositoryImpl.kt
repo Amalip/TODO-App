@@ -11,20 +11,12 @@ import javax.inject.Inject
 
 class TaskRepositoryImpl @Inject constructor(private val taskDao: TaskDao): TaskRepository {
 
-    override fun getPendingTasks(): List<Task> {
-        TODO("Not yet implemented")
-    }
+    override fun getPendingTasks() = taskDao.getPendingTasks()
 
-    override fun getTaskById(taskId: Long): Task? {
-        TODO("Not yet implemented")
-    }
+    override fun getTaskById(taskId: Long) = taskDao.getTaskBy(taskId)
 
-    override fun saveNewTask(task: Task): Long {
-        TODO("Not yet implemented")
-    }
+    override fun saveNewTask(task: Task) = taskDao.saveNewTask(task)
 
-    override fun updateTask(task: Task): Int {
-        TODO("Not yet implemented")
-    }
+    override fun updateTask(task: Task) = taskDao.updateTask(task)
 
 }
